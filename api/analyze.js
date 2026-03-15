@@ -1,66 +1,102 @@
-export default async function handler(req, res) {
+export default async function handler(req,res){
 
-  const { code } = req.query;
+try{
 
-  if (!code) {
-    return res.status(400).json({ error: "証券コードが必要です" });
-  }
+const code = req.query.code;
 
-  try {
+if(!code){
+return res.status(400).json({error:"証券コードが必要"});
+}
 
-    const yahooUrl =
-      "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + code + ".T";
+const symbol = code + ".T";
 
-    const yahooRes = await fetch(yahooUrl);
-    const yahooData = await yahooRes.json();
+const url = "https://query1.finance.yahoo.com/v10/finance/quoteSummary/" + symbol + "?modules=defaultKeyStatistics,financialData,price";
 
-    const result = yahooData.quoteResponse.result[0];
+const r = await fetch(url);
 
-    const price = result.regularMarketPrice;
-    const name = result.longName || result.shortName;
-    const marketCap = result.marketCap;
+const d = await r.json();
 
-    const prompt = `
-この企業を投資家向けに簡潔にまとめてください。
+const price = d.quoteSummary.result[0].price.regularMarketPrice.raw;
 
-会社名: ${name}
+const name = d.quoteSummary.result[0].price.longName;
 
-出力形式
+const marketCap = d.quoteSummary.result[0].price.marketCap.raw;
+
+const per = d.quoteSummary.result[0].defaultKeyStatistics.trailingPE.raw;
+
+const pbr = d.quoteSummary.result[0].defaultKeyStatistics.priceToBook.raw;
+
+const roe = d.quoteSummary.result[0].financialData.returnOnEquity.raw;
+
+const prompt = `
+
+以下の企業を投資家向けに分析してください
+
+企業名: ${name}
+
+出力
+
 ①事業内容
+
 ②強み
+
 ③弱み
-④投資視点
+
+④成長性
+
+⑤投資判断
+
 `;
 
-    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + process.env.OPENAI_API_KEY
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
-      })
-    });
+const ai = await fetch("https://api.openai.com/v1/chat/completions",{
 
-    const aiData = await aiRes.json();
+method:"POST",
 
-    const analysis = aiData.choices[0].message.content;
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+process.env.OPENAI_API_KEY
+},
 
-    res.status(200).json({
-      name,
-      price,
-      marketCap,
-      analysis
-    });
+body:JSON.stringify({
 
-  } catch (error) {
-    res.status(500).json({ error: "サーバーエラー", detail: error.toString() });
-  }
+model:"gpt-4o-mini",
+
+messages:[
+{role:"user",content:prompt}
+]
+
+})
+
+});
+
+const aiData = await ai.json();
+
+const analysis = aiData.choices[0].message.content;
+
+res.status(200).json({
+
+name:name,
+
+price:price,
+
+marketCap:marketCap,
+
+per:per,
+
+pbr:pbr,
+
+roe:roe,
+
+margin:"取得準備中",
+
+analysis:analysis
+
+});
+
+}catch(e){
+
+res.status(500).json({error:e.toString()});
+
+}
+
 }
