@@ -2,16 +2,17 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>株AI分析ツール</title>
+<title>株AI分析</title>
 
 <script src="https://s3.tradingview.com/tv.js"></script>
 
 <style>
+
 body{
 font-family:Arial;
 max-width:900px;
 margin:auto;
-padding:30px;
+padding:20px;
 }
 
 input{
@@ -20,74 +21,92 @@ font-size:16px;
 }
 
 button{
-padding:10px 20px;
+padding:10px;
 font-size:16px;
-cursor:pointer;
 }
 
-#result{
-margin-top:30px;
+.card{
+border:1px solid #ddd;
+padding:15px;
+margin-top:20px;
 }
 
 </style>
-
 </head>
 
 <body>
 
 <h1>株AI分析ツール</h1>
 
-<input id="ticker" placeholder="証券コード 例 7203">
-
+<input id="code" placeholder="証券コード 7203">
 <button onclick="analyze()">分析</button>
 
 <div id="result"></div>
 
-<div id="chart" style="height:500px;margin-top:40px"></div>
+<div id="chart" style="height:500px"></div>
 
 <script>
 
 async function analyze(){
 
-const ticker=document.getElementById("ticker").value
-const result=document.getElementById("result")
+const code = document.getElementById("code").value;
 
-result.innerHTML="読み込み中..."
+document.getElementById("result").innerHTML="読み込み中...";
 
-const res=await fetch("/api/analyze",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({ticker})
-})
+const res = await fetch("/api/analyze?code="+code);
 
-const data=await res.json()
+const data = await res.json();
 
-result.innerHTML=`
+document.getElementById("result").innerHTML = `
+<div class="card">
 
 <h2>${data.name}</h2>
 
-株価: ${data.price}<br>
-PER: ${data.per}<br>
-PBR: ${data.pbr}<br>
+株価: ${data.price}
+
+<br><br>
+
+PER: ${data.per}
+
+<br>
+
+PBR: ${data.pbr}
+
+<br>
+
+ROE: ${data.roe}
+
+<br>
+
 時価総額: ${data.marketCap}
 
-<h3>AI分析</h3>
-<p>${data.analysis}</p>
+<br>
 
-`
+信用倍率: ${data.margin}
+
+</div>
+
+<div class="card">
+
+<h3>AI分析</h3>
+
+<pre>${data.analysis}</pre>
+
+</div>
+`;
 
 new TradingView.widget({
 container_id:"chart",
 autosize:true,
-symbol:`TSE:${ticker}`,
+symbol: code + ".T",
 interval:"D",
 timezone:"Asia/Tokyo",
 theme:"light",
 style:"1",
-locale:"ja"
-})
+locale:"ja",
+toolbar_bg:"#f1f3f6",
+enable_publishing:false
+});
 
 }
 
