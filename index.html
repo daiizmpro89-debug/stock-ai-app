@@ -9,7 +9,7 @@
 <style>
 
 body{
-font-family:Arial;
+font-family:Arial, sans-serif;
 max-width:900px;
 margin:auto;
 padding:20px;
@@ -18,17 +18,20 @@ padding:20px;
 input{
 padding:10px;
 font-size:16px;
+width:200px;
 }
 
 button{
-padding:10px;
+padding:10px 15px;
 font-size:16px;
+cursor:pointer;
 }
 
 .card{
 border:1px solid #ddd;
 padding:15px;
 margin-top:20px;
+border-radius:8px;
 }
 
 </style>
@@ -43,21 +46,33 @@ margin-top:20px;
 
 <div id="result"></div>
 
-<div id="chart" style="height:500px"></div>
+<div id="chart" style="height:500px;margin-top:20px;"></div>
 
 <script>
 
 async function analyze(){
 
-const code = document.getElementById("code").value;
+const code = document.getElementById("code").value.trim();
+
+if(!code){
+alert("証券コードを入力してください");
+return;
+}
 
 document.getElementById("result").innerHTML="読み込み中...";
 
-const res = await fetch("/api/analyze?code="+code);
+try{
+
+const res = await fetch(`/api/analyze?code=${code}`);
+
+if(!res.ok){
+throw new Error("APIエラー");
+}
 
 const data = await res.json();
 
 document.getElementById("result").innerHTML = `
+
 <div class="card">
 
 <h2>${data.name}</h2>
@@ -93,20 +108,31 @@ ROE: ${data.roe}
 <pre>${data.analysis}</pre>
 
 </div>
+
 `;
+
+document.getElementById("chart").innerHTML="";
 
 new TradingView.widget({
 container_id:"chart",
 autosize:true,
-symbol: code + ".T",
+symbol:`TSE:${code}`,
 interval:"D",
 timezone:"Asia/Tokyo",
 theme:"light",
 style:"1",
 locale:"ja",
-toolbar_bg:"#f1f3f6",
 enable_publishing:false
 });
+
+}catch(err){
+
+document.getElementById("result").innerHTML =
+"エラーが発生しました";
+
+console.error(err);
+
+}
 
 }
 
