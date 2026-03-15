@@ -38,19 +38,19 @@ const prompt = `
 ⑤投資視点
 `;
 
+/* 新API */
+
 const ai = await fetch(
-"https://api.openai.com/v1/chat/completions",
+"https://api.openai.com/v1/responses",
 {
 method:"POST",
 headers:{
 "Content-Type":"application/json",
-Authorization:"Bearer "+process.env.OPENAI_API_KEY
+Authorization:"Bearer " + process.env.OPENAI_API_KEY
 },
 body:JSON.stringify({
 model:"gpt-4o-mini",
-messages:[
-{role:"user",content:prompt}
-]
+input:prompt
 })
 }
 );
@@ -58,7 +58,7 @@ messages:[
 const aiData = await ai.json();
 
 const analysis =
-aiData.choices[0].message.content;
+aiData.output[0].content[0].text;
 
 
 /* 結果 */
