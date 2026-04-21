@@ -9,39 +9,33 @@ export default async function handler(req, res) {
     const symbol = code + ".T";
 
     // -----------------------------
-    // ① 株価（Yahoo）
+    // ① Yahooから株価＆会社名
     // -----------------------------
     const yahooRes = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`
     );
     const yahooData = await yahooRes.json();
-    const price = yahooData.chart.result[0].meta.regularMarketPrice;
+
+    const meta = yahooData.chart.result[0].meta;
+
+    const price = meta.regularMarketPrice;
+    const companyName = meta.symbol;
 
     // -----------------------------
-    // ② 企業情報（FMP）
-    // -----------------------------
-    const fmpRes = await fetch(
-      `https://financialmodelingprep.com/api/v3/profile/${symbol}?apikey=${process.env.FMP_API_KEY}`
-    );
-    const fmpData = await fmpRes.json();
-
-    const company = fmpData[0];
-
-    // -----------------------------
-    // ③ ニュース（NewsAPI）
+    // ② ニュース（企業名ベース）
     // -----------------------------
     const newsRes = await fetch(
-      `https://newsapi.org/v2/everything?q=${company.companyName}&apiKey=${process.env.NEWS_API_KEY}`
+      `https://newsapi.org/v2/everything?q=${companyName}&apiKey=${process.env.NEWS_API_KEY}`
     );
     const newsData = await newsRes.json();
 
     const newsText = newsData.articles
-      .slice(0, 5)
+      ?.slice(0, 5)
       .map(n => n.title)
-      .join("\n");
+      .join("\n") || "";
 
     // -----------------------------
-    // ④ AI分析
+    // ③ AI分析
     // -----------------------------
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -59,21 +53,17 @@ export default async function handler(req, res) {
           {
             role: "user",
             content: `
-以下の企業を分析してください
+企業コード: ${code}
 
-【企業情報】
-会社名: ${company.companyName}
-業種: ${company.industry}
-事業内容: ${company.description}
+以下を推定して分析してください：
 
-【ニュース】
+① 会社の事業内容
+② セグメント構造
+③ 中期的な成長戦略
+④ リスク
+
+参考ニュース:
 ${newsText}
-
-以下を出力：
-① 事業内容（わかりやすく）
-② 収益構造（推定OK）
-③ 中期計画の方向性（推定OK）
-④ 今後の成長性とリスク
 `
           }
         ]
@@ -83,12 +73,9 @@ ${newsText}
     const aiData = await openaiRes.json();
     const analysis = aiData.choices[0].message.content;
 
-    // -----------------------------
-    // ⑤ 返す
-    // -----------------------------
     res.status(200).json({
       price,
-      company: company.companyName,
+      company: companyName,
       analysis
     });
 
