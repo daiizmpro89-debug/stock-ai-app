@@ -1,87 +1,98 @@
 export default async function handler(req, res) {
+  try {
+    const { code } = req.query;
 
-try {
+    if (!code) {
+      return res.status(400).json({ error: "証券コードを入力してください" });
+    }
 
-const code = req.query.code;
+    const symbol = code + ".T";
 
-if(!code){
-return res.status(400).json({error:"証券コードを入力してください"});
-}
+    // -----------------------------
+    // ① 株価（Yahoo）
+    // -----------------------------
+    const yahooRes = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`
+    );
+    const yahooData = await yahooRes.json();
+    const price = yahooData.chart.result[0].meta.regularMarketPrice;
 
-const symbol = code + ".T";
+    // -----------------------------
+    // ② 企業情報（FMP）
+    // -----------------------------
+    const fmpRes = await fetch(
+      `https://financialmodelingprep.com/api/v3/profile/${symbol}?apikey=${process.env.FMP_API_KEY}`
+    );
+    const fmpData = await fmpRes.json();
 
-/* 株価取得 */
+    const company = fmpData[0];
 
-const yahoo = await fetch(
-"https://query1.finance.yahoo.com/v8/finance/chart/" + symbol
-);
+    // -----------------------------
+    // ③ ニュース（NewsAPI）
+    // -----------------------------
+    const newsRes = await fetch(
+      `https://newsapi.org/v2/everything?q=${company.companyName}&apiKey=${process.env.NEWS_API_KEY}`
+    );
+    const newsData = await newsRes.json();
 
-const yahooData = await yahoo.json();
+    const newsText = newsData.articles
+      .slice(0, 5)
+      .map(n => n.title)
+      .join("\n");
 
-const price =
-yahooData.chart.result[0].meta.regularMarketPrice;
+    // -----------------------------
+    // ④ AI分析
+    // -----------------------------
+    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini",
+        messages: [
+          {
+            role: "system",
+            content: "あなたはプロの株式アナリストです。"
+          },
+          {
+            role: "user",
+            content: `
+以下の企業を分析してください
 
+【企業情報】
+会社名: ${company.companyName}
+業種: ${company.industry}
+事業内容: ${company.description}
 
-/* AI分析 */
+【ニュース】
+${newsText}
 
-const prompt = `
-日本株の企業分析をしてください。
+以下を出力：
+① 事業内容（わかりやすく）
+② 収益構造（推定OK）
+③ 中期計画の方向性（推定OK）
+④ 今後の成長性とリスク
+`
+          }
+        ]
+      })
+    });
 
-証券コード: ${code}
+    const aiData = await openaiRes.json();
+    const analysis = aiData.choices[0].message.content;
 
-出力
+    // -----------------------------
+    // ⑤ 返す
+    // -----------------------------
+    res.status(200).json({
+      price,
+      company: company.companyName,
+      analysis
+    });
 
-①事業内容
-②強み
-③弱み
-④成長性
-⑤投資視点
-`;
-
-/* 新API */
-
-const ai = await fetch(
-"https://api.openai.com/v1/responses",
-{
-method:"POST",
-headers:{
-"Content-Type":"application/json",
-Authorization:"Bearer " + process.env.OPENAI_API_KEY
-},
-body:JSON.stringify({
-model:"gpt-4o-mini",
-input:prompt
-})
-}
-);
-
-const aiData = await ai.json();
-
-const analysis =
-aiData.output[0].content[0].text;
-
-
-/* 結果 */
-
-res.status(200).json({
-
-name: symbol,
-price: price,
-
-per:"取得予定",
-pbr:"取得予定",
-roe:"取得予定",
-marketCap:"取得予定",
-margin:"取得予定",
-
-analysis: analysis
-
-});
-
-} catch(e){
-
-res.status(500).json({error:e.toString()});
-
-}
-
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }
