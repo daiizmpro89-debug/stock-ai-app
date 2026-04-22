@@ -7,35 +7,45 @@
 <script src="https://s3.tradingview.com/tv.js"></script>
 
 <style>
+
 body{
 font-family:Arial, sans-serif;
 max-width:900px;
 margin:auto;
 padding:20px;
+font-size:20px; /* ← 全体大きく */
 }
 
+h1{ font-size:32px; }
+h2{ font-size:26px; }
+h3{ font-size:22px; }
+
 input{
-padding:10px;
-font-size:16px;
-width:200px;
+padding:12px;
+font-size:18px;
+width:220px;
 }
 
 button{
-padding:10px 15px;
-font-size:16px;
+padding:12px 18px;
+font-size:18px;
 cursor:pointer;
 }
 
 .card{
 border:1px solid #ddd;
-padding:15px;
+padding:20px;
 margin-top:20px;
-border-radius:8px;
+border-radius:10px;
+font-size:20px;
+line-height:1.7;
 }
 
-.loading{
-color:gray;
+pre{
+font-size:18px;
+white-space:pre-wrap;
 }
+
 </style>
 </head>
 
@@ -47,7 +57,6 @@ color:gray;
 <button onclick="analyze()">分析</button>
 
 <div id="result"></div>
-
 <div id="chart" style="height:500px;margin-top:20px;"></div>
 
 <script>
@@ -61,41 +70,28 @@ alert("証券コードを入力してください");
 return;
 }
 
-document.getElementById("result").innerHTML="<p class='loading'>読み込み中...</p>";
+document.getElementById("result").innerHTML="読み込み中...";
 document.getElementById("chart").innerHTML="";
 
 try{
 
 const res = await fetch(`/api/analyze?code=${code}`);
-
-if(!res.ok){
-throw new Error("APIエラー");
-}
-
 const data = await res.json();
 
-// ★ APIに合わせて修正
 document.getElementById("result").innerHTML = `
 
 <div class="card">
-
-<h2>${data.company || "企業名不明"}</h2>
-
-株価: ${data.price ?? "N/A"}
-
+<h2>${data.company}</h2>
+株価: ${data.price}
 </div>
 
 <div class="card">
-
 <h3>AI分析</h3>
-
-<pre>${data.analysis || "分析なし"}</pre>
-
+<pre>${data.analysis}</pre>
 </div>
 
 `;
 
-// ★ TradingViewチャート
 new TradingView.widget({
 container_id:"chart",
 autosize:true,
@@ -109,12 +105,7 @@ enable_publishing:false
 });
 
 }catch(err){
-
-document.getElementById("result").innerHTML =
-"<p>エラーが発生しました</p>";
-
-console.error(err);
-
+document.getElementById("result").innerHTML="エラーが発生しました";
 }
 
 }
