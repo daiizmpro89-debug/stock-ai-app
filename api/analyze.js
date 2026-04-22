@@ -9,33 +9,46 @@ export default async function handler(req, res) {
     const symbol = code + ".T";
 
     // -----------------------------
-    // ① Yahooから株価＆会社名
+    // ① 複数ソース取得
     // -----------------------------
-    const yahooRes = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`
-    );
-    const yahooData = await yahooRes.json();
+    const results = await Promise.allSettled([
+      fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`),
+      fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=price,summaryDetail`)
+    ]);
 
-    const meta = yahooData.chart.result[0].meta;
+    let price = null;
+    let companyName = null;
 
-    const price = meta.regularMarketPrice;
-    const companyName = meta.symbol;
+    // Yahoo①
+    if (results[0].status === "fulfilled") {
+      const data = await results[0].value.json();
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (meta) {
+        price = meta.regularMarketPrice;
+        companyName = meta.symbol;
+      }
+    }
+
+    // Yahoo② fallback
+    if ((!price || !companyName) && results[1].status === "fulfilled") {
+      const data = await results[1].value.json();
+      const result = data?.quoteSummary?.result?.[0];
+      if (result) {
+        price = result.price?.regularMarketPrice?.raw;
+        companyName = result.price?.longName;
+      }
+    }
+
+    if (!price) {
+      return res.status(200).json({
+        company: "不明",
+        price: "取得不可",
+        analysis: "データ取得に失敗しました。証券コードを確認してください。"
+      });
+    }
 
     // -----------------------------
-    // ② ニュース（企業名ベース）
-    // -----------------------------
-    const newsRes = await fetch(
-      `https://newsapi.org/v2/everything?q=${companyName}&apiKey=${process.env.NEWS_API_KEY}`
-    );
-    const newsData = await newsRes.json();
-
-    const newsText = newsData.articles
-      ?.slice(0, 5)
-      .map(n => n.title)
-      .join("\n") || "";
-
-    // -----------------------------
-    // ③ AI分析
+    // ② AI分析（セグメント含む）
     // -----------------------------
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -55,15 +68,14 @@ export default async function handler(req, res) {
             content: `
 企業コード: ${code}
 
-以下を推定して分析してください：
+以下を分析してください：
 
-① 会社の事業内容
-② セグメント構造
-③ 中期的な成長戦略
+① 事業内容（わかりやすく）
+② セグメント構造（売上比率％＋利益比率％で具体的に）
+③ 中期成長戦略
 ④ リスク
 
-参考ニュース:
-${newsText}
+※セグメントは可能な限り具体的な数値で推定してください
 `
           }
         ]
@@ -73,9 +85,12 @@ ${newsText}
     const aiData = await openaiRes.json();
     const analysis = aiData.choices[0].message.content;
 
+    // -----------------------------
+    // ③ 返却
+    // -----------------------------
     res.status(200).json({
-      price,
       company: companyName,
+      price,
       analysis
     });
 
