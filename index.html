@@ -7,13 +7,12 @@
 <script src="https://s3.tradingview.com/tv.js"></script>
 
 <style>
-
 body{
 font-family:Arial, sans-serif;
 max-width:900px;
 margin:auto;
 padding:20px;
-font-size:20px; /* ← 全体大きく */
+font-size:20px;
 }
 
 h1{ font-size:32px; }
@@ -23,7 +22,7 @@ h3{ font-size:22px; }
 input{
 padding:12px;
 font-size:18px;
-width:220px;
+width:250px;
 }
 
 button{
@@ -37,7 +36,6 @@ border:1px solid #ddd;
 padding:20px;
 margin-top:20px;
 border-radius:10px;
-font-size:20px;
 line-height:1.7;
 }
 
@@ -45,7 +43,6 @@ pre{
 font-size:18px;
 white-space:pre-wrap;
 }
-
 </style>
 </head>
 
@@ -53,7 +50,7 @@ white-space:pre-wrap;
 
 <h1>株AI分析ツール</h1>
 
-<input id="code" placeholder="証券コード 7203">
+<input id="input" placeholder="企業名 or 証券コード">
 <button onclick="analyze()">分析</button>
 
 <div id="result"></div>
@@ -63,10 +60,10 @@ white-space:pre-wrap;
 
 async function analyze(){
 
-const code = document.getElementById("code").value.trim();
+const input = document.getElementById("input").value.trim();
 
-if(!code){
-alert("証券コードを入力してください");
+if(!input){
+alert("入力してください");
 return;
 }
 
@@ -75,13 +72,14 @@ document.getElementById("chart").innerHTML="";
 
 try{
 
-const res = await fetch(`/api/analyze?code=${code}`);
+const res = await fetch(`/api/analyze?input=${input}`);
 const data = await res.json();
 
 document.getElementById("result").innerHTML = `
 
 <div class="card">
 <h2>${data.company}</h2>
+コード: ${data.code}<br>
 株価: ${data.price}
 </div>
 
@@ -95,7 +93,7 @@ document.getElementById("result").innerHTML = `
 new TradingView.widget({
 container_id:"chart",
 autosize:true,
-symbol:`TSE:${code}`,
+symbol:`TSE:${data.code}`,
 interval:"D",
 timezone:"Asia/Tokyo",
 theme:"light",
@@ -106,6 +104,7 @@ enable_publishing:false
 
 }catch(err){
 document.getElementById("result").innerHTML="エラーが発生しました";
+console.error(err);
 }
 
 }
