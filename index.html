@@ -1,114 +1,26 @@
 <!DOCTYPE html>
 <html>
-<head>
-<meta charset="UTF-8">
-<title>株AI分析</title>
-
-<script src="https://s3.tradingview.com/tv.js"></script>
-
-<style>
-body{
-font-family:Arial, sans-serif;
-max-width:900px;
-margin:auto;
-padding:20px;
-font-size:20px;
-}
-
-h1{ font-size:32px; }
-h2{ font-size:26px; }
-h3{ font-size:22px; }
-
-input{
-padding:12px;
-font-size:18px;
-width:250px;
-}
-
-button{
-padding:12px 18px;
-font-size:18px;
-cursor:pointer;
-}
-
-.card{
-border:1px solid #ddd;
-padding:20px;
-margin-top:20px;
-border-radius:10px;
-line-height:1.7;
-}
-
-pre{
-font-size:18px;
-white-space:pre-wrap;
-}
-</style>
-</head>
-
 <body>
 
-<h1>株AI分析ツール</h1>
+<input id="input" placeholder="企業名 or コード">
+<button onclick="run()">分析</button>
 
-<input id="input" placeholder="企業名 or 証券コード">
-<button onclick="analyze()">分析</button>
-
-<div id="result"></div>
-<div id="chart" style="height:500px;margin-top:20px;"></div>
+<pre id="out"></pre>
 
 <script>
+async function run(){
+  const input = document.getElementById("input").value;
 
-async function analyze(){
+  const res = await fetch("http://localhost:3000/analyze",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({input})
+  });
 
-const input = document.getElementById("input").value.trim();
-
-if(!input){
-alert("入力してください");
-return;
+  const data = await res.json();
+  document.getElementById("out").textContent =
+    JSON.stringify(data, null, 2);
 }
-
-document.getElementById("result").innerHTML="読み込み中...";
-document.getElementById("chart").innerHTML="";
-
-try{
-
-const res = await fetch(`/api/analyze?input=${input}`);
-const data = await res.json();
-
-document.getElementById("result").innerHTML = `
-
-<div class="card">
-<h2>${data.company}</h2>
-コード: ${data.code}<br>
-株価: ${data.price}
-</div>
-
-<div class="card">
-<h3>AI分析</h3>
-<pre>${data.analysis}</pre>
-</div>
-
-`;
-
-new TradingView.widget({
-container_id:"chart",
-autosize:true,
-symbol:`TSE:${data.code}`,
-interval:"D",
-timezone:"Asia/Tokyo",
-theme:"light",
-style:"1",
-locale:"ja",
-enable_publishing:false
-});
-
-}catch(err){
-document.getElementById("result").innerHTML="エラーが発生しました";
-console.error(err);
-}
-
-}
-
 </script>
 
 </body>
